@@ -79,8 +79,38 @@ public:
 
 };
 
+#include "examples/rnd.h"
+
+py::array_t<int32_t>
+py_rnd_predict(py::array_t<int32_t, py::array::c_style | py::array::forcecast> in) {
+    if (in.ndim() != 2) {
+        throw std::runtime_error("predict input must have dimensions 2");
+    }
+
+    const int64_t n_samples = in.shape()[0];
+    const int32_t n_features = in.shape()[1];
+
+    auto classes = py::array_t<int32_t>(n_samples);
+    //auto s = in.unchecked();
+    auto r = classes.mutable_unchecked<1>(); 
+    for (int i=0; i<n_samples; i++) {
+        //const int32_t *v = s.data(i);
+        const int32_t *v = in.data(i);
+        const int32_t p = rnd_predict(v, n_features);
+        if (p < 0) {
+            const std::string msg = emtrees_errors[-p];
+            throw std::runtime_error(msg);
+        }
+        r(i) = p;
+    }
+
+    return classes;
+}
+
 PYBIND11_MODULE(emtreesc, m) {
     m.doc() = "Tree-based machine learning classifiers for embedded devices";
+
+    m.def("rnd_predict", &py_rnd_predict);
 
     py::class_<EmtreesClassifier>(m, "Classifier")
         .def(py::init<std::vector<EmtreesValue>, std::vector<int32_t>>())
